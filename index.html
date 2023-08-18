@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Sliding Panel Example</title>
+  </head>
+  <body>
+    <div class="page-content">
+      <button id="openPanel">Open Panel</button>
+    </div>
+
+    <!-- this is the modal -->
+    <div class="slide-panel transition" id="slidePanel" style="display: none">
+      <div style="display: flex; height: 100%">
+        <!-- this illustrates the area where swiping works, for debugging purpose, give it a background -->
+        <div style="height: 100%; width: 40%; background-color: red">hello</div>
+
+        <!-- this is nothing, forget it -->
+        <div style="margin-left: 10%"></div>
+      </div>
+    </div>
+  </body>
+  <script>
+    $(document).ready(function () {
+      let pageWidth = window.innerWidth;
+      console.log(pageWidth);
+
+      // Init width of the modal to page width
+      let modalWidth = pageWidth;
+
+      console.log(`modal width: ${modalWidth}`);
+
+      let modal = document.getElementById("slidePanel");
+
+      // we give the modal a init size
+      modal.style.right = -modalWidth + "px"; // let it hide into the right side of the screen
+      modal.style.width = modalWidth + "px"; // give it a width
+
+      // this might be confusing, together with the style of (#slidePanel) display: none;
+      // the action of setting width and right will cause a quick flashing of the modal, so before setting the style, the modal has to be invisible
+      // and after setting the style, we restore the display of the modal
+      modal.style.display = "block";
+
+      // region: convenient function for manipulating modal
+
+      /**
+       * convenient function for closing modal style "right"
+       */
+      function closeModal() {
+        modal.style.right = `${-modalWidth}px`;
+      }
+
+      /**
+       * convenient function for opening modal style "right"
+       */
+      function openModal() {
+        modal.style.right = `0`;
+      }
+
+      /**
+       * convenient function for getting modal style "right"
+       *
+       */
+      function modalStyleRight() {
+        return Number(
+          modal.style.right.substring(0, modal.style.right.length - 2)
+        );
+      }
+
+      /**
+       * convenient function for setting modal style "right"
+       */
+      function setModalStyleRight(value) {
+        modal.style.right = `${value}px`;
+      }
+
+      /**
+       * Determine what should the modal do after user finish swiping, close or  * restore.
+       *
+       * If the modal is half body into the right side, close, otherwise restore.
+       *
+       * Invoked when user finish swipe(finger leave the screen).
+       *
+       */
+      function shouldModalClose() {
+        let modalRightValue = Math.abs(modalStyleRight());
+        if (modalRightValue > modalWidth / 2) {
+          return true;
+        }
+        return false;
+      }
+      // endregion
+
+      const openPanelButton = document.getElementById("openPanel");
+      const closePanelButton = document.getElementById("closePanel");
+
+      openPanelButton.addEventListener("click", function () {
+        openModal();
+      });
+
+      const swipePercentage = 0.4;
+      const swipeAreaWidth = window.innerWidth * swipePercentage;
+      console.log("swipe area: " + swipeAreaWidth);
+
+      // this is the width of the area where user swipes over the screen, direction is from left to right
+      let userSwipePathWidth = 0;
+
+      // this is the start point of the swipe action
+      let swipeStartPoint = 0;
+
+      // this is the time span limit of the swipe action, if the span is less than this value, we close the modal no matter where the modal is
+      let closeModalSwipeSpanLimitation = 500;
+
+      // this is the start time of the swipe action
+      let swipeStartTime;
+
+      // this is the end time of the swipe action
+      let swipeEndTime;
+      modal.addEventListener("touchstart", function (e) {
+        const touch = e.changedTouches[0];
+
+        // this is where the user's finger is, in this case, represents the swipe start point
+        const touchClientX = touch.clientX;
+
+        // if and only if the user's finger is in the swipe area, we start to record the swipe action
+        if (touchClientX <= swipeAreaWidth) {
+          swipeStartTime = new Date().getTime();
+          // remove the transition of modal, because we need the modal to follow the user's finger without latency
+          modal.classList.remove("transition");
+
+          // record the swipe start point
+          swipeStartPoint = touchClientX;
+          console.log("touch start");
+        }
+      });
+
+      modal.addEventListener("touchmove", function (e) {
+        const touch = e.changedTouches[0];
+
+        // this is where the user's finger is, in this case, represents where the user's finger is moving to
+        const touchClientX = touch.clientX;
+
+        userSwipePathWidth = touchClientX - swipeStartPoint;
+
+        // prevent user to swipe the panel into the left side of the screen
+        if (userSwipePathWidth >= 0) {
+          console.log("touch move");
+          console.log("swipe width: " + userSwipePathWidth);
+
+          // how long should modal move from the beginning is the same as how long user's finger moves. For example if user swipe 20px, modal should move 20px from the beginning
+          let newModalRight = 0 - userSwipePathWidth;
+          console.log("new modal right: " + newModalRight);
+          setModalStyleRight(newModalRight);
+        }
+      });
+
+      modal.addEventListener("touchend", function (e) {
+        // restore the transition of modal
+        modal.classList.add("transition");
+        swipeEndTime = new Date().getTime();
+
+        // if the span user swipes is less than a certain time span limit, close the modal no matter where the modal is
+        if (
+          swipeEndTime - swipeStartTime <= closeModalSwipeSpanLimitation &&
+          userSwipePathWidth > 0
+        ) {
+          closeModal();
+          return;
+        }
+
+        // ok, may be user want to play with the modal, let him/her/it/helicopter do it, we handle the action of closing or restoring the modal in the next step
+        if (shouldModalClose()) {
+          closeModal();
+        } else {
+          openModal();
+        }
+      });
+    });
+  </script>
+  <style>
+    .slide-panel {
+      /* ... */
+      touch-action: pan-left;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    .page-content {
+      padding: 20px;
+      background-color: #f0f0f0;
+    }
+
+    .slide-panel {
+      position: fixed;
+      top: 0;
+      height: 100%;
+      background-color: #fff;
+      box-shadow: -5px 0px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .slide-panel.transition {
+      transition: right 0.3s ease-in-out;
+    }
+
+    #closePanel {
+      display: block;
+      margin-top: 20px;
+    }
+  </style>
+</html>
